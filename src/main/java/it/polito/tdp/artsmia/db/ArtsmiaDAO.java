@@ -5,9 +5,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import it.polito.tdp.artsmia.model.ArtObject;
+import it.polito.tdp.artsmia.model.Artist;
+import it.polito.tdp.artsmia.model.Coppie;
 import it.polito.tdp.artsmia.model.Exhibition;
 
 public class ArtsmiaDAO {
@@ -64,4 +68,73 @@ public class ArtsmiaDAO {
 		}
 	}
 	
+public List<String> listRoles() {
+		
+		String sql = "SELECT DISTINCT role FROM authorship ORDER BY role";
+		List<String> result = new ArrayList<>();
+		Connection conn = DBConnect.getConnection();
+
+		try {
+			PreparedStatement st = conn.prepareStatement(sql);
+			ResultSet res = st.executeQuery();
+			while (res.next()) {
+				
+				result.add(res.getString(1));
+			}
+			conn.close();
+			return result;
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+public void getArtistiByRole(Map<Integer, Artist> mappaArtisti, String ruolo) {
+	String sql = "SELECT DISTINCT artists.artist_id, NAME FROM artists, authorship WHERE authorship.artist_id=artists.artist_id AND role=?";
+	Connection conn = DBConnect.getConnection();
+
+	try {
+		PreparedStatement st = conn.prepareStatement(sql);
+		st.setString(1, ruolo);
+		ResultSet res = st.executeQuery();
+		while (res.next()) {
+			String nome=res.getString(2);
+			int id=res.getInt(1);
+			if(!mappaArtisti.containsKey(id))
+			mappaArtisti.put(id, new Artist(id, nome));
+		}
+		conn.close();
+		
+	} catch (SQLException e) {
+		e.printStackTrace();
+	}
+	
+}
+	
+public List<Coppie> getCoppie(Map<Integer, Artist> mappaArtisti, String ruolo) {
+	String sql = "SELECT a1.artist_id, a2.artist_id, COUNT(*) FROM (SELECT DISTINCT exhibition_id, artist_id FROM authorship, exhibition_objects WHERE authorship.object_id=exhibition_objects.object_id AND authorship.role=?) AS a1, (SELECT DISTINCT exhibition_id, artist_id FROM authorship, exhibition_objects WHERE authorship.object_id=exhibition_objects.object_id AND authorship.role=?) AS a2 WHERE a1.exhibition_id=a2.exhibition_id AND a1.artist_id!=a2.artist_id AND a1.artist_id<a2.artist_id GROUP BY a1.artist_id, a2.artist_id";
+	Connection conn = DBConnect.getConnection();
+	List<Coppie> result= new LinkedList<Coppie>();
+
+	try {
+		PreparedStatement st = conn.prepareStatement(sql);
+		st.setString(1, ruolo);
+		st.setString(2, ruolo);
+		ResultSet res = st.executeQuery();
+		while (res.next()) {
+			Artist a1= mappaArtisti.get(res.getInt(1));
+			Artist a2= mappaArtisti.get(res.getInt(2));
+			result.add(new Coppie(a1, a2, res.getInt(3)));
+		}
+		conn.close();
+		return result;
+		
+	} catch (SQLException e) {
+		e.printStackTrace();
+		return null;
+	}
+	
+}
+
 }
